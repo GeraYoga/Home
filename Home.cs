@@ -37,7 +37,10 @@ namespace GY.Home
         
         private void EventsOnOnPlayerDisconnected(UnturnedPlayer player)
         {
-            FinishTeleportTask(player.CSteamID);
+            if (PlayersController.ContainsKey(player.CSteamID))
+            {
+                FinishTeleportTask(player.CSteamID);
+            }
         }
         
         public override TranslationList DefaultTranslations => new TranslationList

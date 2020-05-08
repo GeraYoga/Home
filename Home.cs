@@ -29,11 +29,17 @@ namespace GY.Home
         {
             DamageTool.damagePlayerRequested += DamageToolOnDamagePlayerRequested;
             UnturnedPlayerEvents.OnPlayerUpdatePosition += UnturnedPlayerEventsOnOnPlayerUpdatePosition;
+            U.Events.OnPlayerDisconnected += EventsOnOnPlayerDisconnected;
             Instance = this;
             Config = Instance.Configuration.Instance;
             HarmonyInstance.Patch(_threadBase, new HarmonyMethod(_patchedBase));
         }
-
+        
+        private void EventsOnOnPlayerDisconnected(UnturnedPlayer player)
+        {
+            FinishTeleportTask(player.CSteamID);
+        }
+        
         public override TranslationList DefaultTranslations => new TranslationList
         {
             {"bed_not_found", "Ваша кровать не найдена!"},

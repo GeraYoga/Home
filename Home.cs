@@ -50,7 +50,7 @@ namespace GY.Home
             {"pvp_mode", "Вы получили урон, телепортация отменена!"},
             {"movement_detected", "Телепортация отменена, вы двигались!"},
             {"teleportation_in_proc", "Процесс телепортации уже активен..."},
-            {"teleport_info", "Запрос на телепортацию к кровате получен, ждте {0} секунд!"}
+            {"teleport_info", "Запрос на телепортацию к кровате получен, ждите {0} секунд!"}
         };
 
         private void UnturnedPlayerEventsOnOnPlayerUpdatePosition(UnturnedPlayer player, Vector3 position)

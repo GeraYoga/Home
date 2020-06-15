@@ -1,6 +1,5 @@
 ﻿using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Threading;
 using System.Threading.Tasks;
 using Rocket.API;
 using Rocket.Unturned.Chat;
@@ -17,30 +16,36 @@ namespace GY.Home
         {
             var player = (UnturnedPlayer) caller;
             
-            if (Home.PlayersController.ContainsKey(player.CSteamID))
+            if (Home.PlayersController.Contains(player.CSteamID))
             {
                 UnturnedChat.Say(player, Home.Instance.Translate("teleportation_in_proc"), Color.red);
                 return;
             }
-            
-            if (!BarricadeManager.tryGetBed(player.CSteamID, out var position, out _))
+
+            if (!BarricadeManager.tryGetBed(player.CSteamID, out _, out _))
             {
                 UnturnedChat.Say(player, Home.Instance.Translate("bed_not_found"), Color.red);
                 return;
             }
             
-            var currentSource = new CancellationTokenSource();
-            Home.PlayersController.Add(player.CSteamID, currentSource);
-            UnturnedChat.Say(player, Home.Instance.Translate("teleport_info", Home.Config.TeleportDelay), Color.green);
-            
+            Home.PlayersController.Add(player.CSteamID);
+
             Task.Run(async () =>
             {
-                await Task.Delay(Home.Config.TeleportDelay * 1000, currentSource.Token);
-                player.Player.teleportToLocationUnsafe(position, 0);
+                UnturnedChat.Say(player, Home.Instance.Translate("teleport_info", Home.Config.TeleportDelay), Color.green);
+                await Task.Delay(Home.Config.TeleportDelay * 1000);
+                if(!Home.PlayersController.Contains(player.CSteamID)) return;
                 Home.FinishTeleportTask(player.CSteamID);
-                UnturnedChat.Say(player, Home.Instance.Translate("teleported_to_bed"), Color.magenta);
                 
-            }, currentSource.Token);
+                if (player.Player.teleportToBed())
+                {
+                    UnturnedChat.Say(player, Home.Instance.Translate("teleported_to_bed"), Color.cyan);
+                    return;
+                }
+                
+                UnturnedChat.Say(player, Home.Instance.Translate("bed_not_found"), Color.red);
+            });
+
         }
 
         public AllowedCaller AllowedCaller => AllowedCaller.Player;

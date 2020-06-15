@@ -1,11 +1,9 @@
 ﻿using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Reflection;
-using System.Threading;
-using HarmonyLib;
 using Rocket.API.Collections;
 using Rocket.Core.Plugins;
+using Rocket.Unturned;
 using Rocket.Unturned.Chat;
 using Rocket.Unturned.Events;
 using Rocket.Unturned.Player;
@@ -20,11 +18,8 @@ namespace GY.Home
     {
         public static Home Instance;
         public static Config Config;
-        public static readonly Dictionary<CSteamID, CancellationTokenSource> PlayersController = new Dictionary<CSteamID, CancellationTokenSource>();
-        private static readonly Harmony HarmonyInstance = new Harmony("gy.harmony.instance");
-        private readonly MethodInfo _threadBase = typeof(ThreadUtil).GetMethod("assertIsGameThread", BindingFlags.Public | BindingFlags.Static);
-        private readonly MethodInfo _patchedBase = typeof(ThreadPatch).GetMethod("ThreadPatchMethod", BindingFlags.Public | BindingFlags.Static);
-        
+        public static readonly List<CSteamID> PlayersController = new List<CSteamID>();
+
         protected override void Load()
         {
             DamageTool.damagePlayerRequested += DamageToolOnDamagePlayerRequested;
@@ -32,17 +27,17 @@ namespace GY.Home
             U.Events.OnPlayerDisconnected += EventsOnOnPlayerDisconnected;
             Instance = this;
             Config = Instance.Configuration.Instance;
-            HarmonyInstance.Patch(_threadBase, new HarmonyMethod(_patchedBase));
         }
-        
-        private void EventsOnOnPlayerDisconnected(UnturnedPlayer player)
+
+        private static void EventsOnOnPlayerDisconnected(UnturnedPlayer player)
         {
-            if (PlayersController.ContainsKey(player.CSteamID))
+            if (PlayersController.Contains(player.CSteamID))
             {
                 FinishTeleportTask(player.CSteamID);
             }
         }
-        
+
+
         public override TranslationList DefaultTranslations => new TranslationList
         {
             {"bed_not_found", "Ваша кровать не найдена!"},
@@ -50,13 +45,13 @@ namespace GY.Home
             {"pvp_mode", "Вы получили урон, телепортация отменена!"},
             {"movement_detected", "Телепортация отменена, вы двигались!"},
             {"teleportation_in_proc", "Процесс телепортации уже активен..."},
-            {"teleport_info", "Запрос на телепортацию к кровате получен, ждите {0} секунд!"}
+            {"teleport_info", "Запрос на телепортацию к кровате получен, ждте {0} секунд!"}
         };
 
         private void UnturnedPlayerEventsOnOnPlayerUpdatePosition(UnturnedPlayer player, Vector3 position)
         {
             if (Config.AllowMovement) return;
-            if (!PlayersController.ContainsKey(player.CSteamID)) return;
+            if (!PlayersController.Contains(player.CSteamID)) return;
             FinishTeleportTask(player.CSteamID);
             UnturnedChat.Say(player, Translate("movement_detected"), Color.yellow);
         }
@@ -66,26 +61,23 @@ namespace GY.Home
         {
             var target = parameters.player.channel.owner.playerID.steamID;
             if (Config.AllowPvP) return;
-            if (!PlayersController.ContainsKey(target)) return;
+            if (!PlayersController.Contains(target)) return;
             FinishTeleportTask(target);
             UnturnedChat.Say(target, Translate("pvp_mode"), Color.yellow);
         }
 
         public static void FinishTeleportTask(CSteamID target)
         {
-            PlayersController[target].Cancel();
-            PlayersController[target].Dispose();
             PlayersController.Remove(target);
         }
 
         protected override void Unload()
         {
+            DamageTool.damagePlayerRequested -= DamageToolOnDamagePlayerRequested;
+            UnturnedPlayerEvents.OnPlayerUpdatePosition -= UnturnedPlayerEventsOnOnPlayerUpdatePosition;
+            U.Events.OnPlayerDisconnected -= EventsOnOnPlayerDisconnected;
             Instance = null;
-            HarmonyInstance.Unpatch(_threadBase, _patchedBase);
-            PlayersController.AsParallel().ForAll(pair =>
-            {
-                FinishTeleportTask(pair.Key);
-            });
+            PlayersController.AsParallel().ForAll(FinishTeleportTask);
             PlayersController.Clear();
         }
     }
